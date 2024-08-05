@@ -10,7 +10,6 @@ import ssl
 from aiohttp import ClientSession, TCPConnector
 from app.generators import gpt4, transcribe_audio, text_to_speech
 
-# Initialize the logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,6 @@ async def handle_voice(message: Message, state: FSMContext):
 
         file_name = f'voice_{message.message_id}.ogg'
 
-        # Download the file from Telegram
         async with ClientSession(connector=TCPConnector(ssl=ssl_context)) as session:
             async with session.get(f'https://api.telegram.org/file/bot{os.getenv("TG_TOKEN")}/{file_path}') as resp:
                 if resp.status == 200:
@@ -72,7 +70,6 @@ async def handle_voice(message: Message, state: FSMContext):
                     await message.answer("Failed to download the voice message.")
                     return
 
-        # Transcribe the audio file
         transcription = await transcribe_audio(file_name)
         await message.answer(transcription)
 
@@ -81,11 +78,9 @@ async def handle_voice(message: Message, state: FSMContext):
         gpt_text = response.choices[0].message.content
         await message.answer(gpt_text)
 
-        # Generate text-to-speech and send it
         audio_file_path = await text_to_speech(gpt_text)
         audio_file = FSInputFile(audio_file_path)
 
-        # Отправка аудиофайла обратно пользователю
         await message.answer_voice(audio_file)
 
     except Exception as e:

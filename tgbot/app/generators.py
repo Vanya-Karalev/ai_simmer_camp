@@ -31,7 +31,6 @@ async def transcribe_audio(file_path):
             )
         logger.info(f"Transcription response: {response}")
 
-        # Access the text attribute directly
         transcription_text = response.text
         return transcription_text
     except Exception as e:
@@ -48,7 +47,6 @@ async def text_to_speech(text: str) -> str:
         )
         logger.info(f"TTS response: {response}")
 
-        # Сохранение аудиофайла
         file_path = "output.mp3"
         with open(file_path, "wb") as f:
             f.write(response.content)
