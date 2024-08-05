@@ -37,3 +37,23 @@ async def transcribe_audio(file_path):
     except Exception as e:
         logger.error(f"Error transcribing audio: {e}")
         raise
+
+
+async def text_to_speech(text: str) -> str:
+    try:
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice="alloy",
+            input=text
+        )
+        logger.info(f"TTS response: {response}")
+
+        # Сохранение аудиофайла
+        file_path = "output.mp3"
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+
+        return file_path
+    except Exception as e:
+        logger.error(f"Error generating TTS: {e}")
+        raise

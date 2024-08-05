@@ -1,14 +1,14 @@
 import os
 import logging
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
 from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 import aiofiles
 import ssl
 from aiohttp import ClientSession, TCPConnector
-from app.generators import gpt4, transcribe_audio
+from app.generators import gpt4, transcribe_audio, text_to_speech
 
 # Initialize the logger
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +48,10 @@ async def generate(message: Message, state: FSMContext):
 @router.message(F.voice)
 async def handle_voice(message: Message, state: FSMContext):
     file_id = message.voice.file_id
+    file_name = None
+    audio_file_path = None
     try:
+        # Get the file info from Telegram
         file_info = await message.bot.get_file(file_id)
         file_path = file_info.file_path
 
@@ -58,6 +61,7 @@ async def handle_voice(message: Message, state: FSMContext):
 
         file_name = f'voice_{message.message_id}.ogg'
 
+        # Download the file from Telegram
         async with ClientSession(connector=TCPConnector(ssl=ssl_context)) as session:
             async with session.get(f'https://api.telegram.org/file/bot{os.getenv("TG_TOKEN")}/{file_path}') as resp:
                 if resp.status == 200:
@@ -68,14 +72,28 @@ async def handle_voice(message: Message, state: FSMContext):
                     await message.answer("Failed to download the voice message.")
                     return
 
+        # Transcribe the audio file
         transcription = await transcribe_audio(file_name)
         await message.answer(transcription)
+
+        # Generate GPT-4 response
         response = await gpt4(transcription)
-        await message.answer(response.choices[0].message.content)
+        gpt_text = response.choices[0].message.content
+        await message.answer(gpt_text)
+
+        # Generate text-to-speech and send it
+        audio_file_path = await text_to_speech(gpt_text)
+        audio_file = FSInputFile(audio_file_path)
+
+        # Отправка аудиофайла обратно пользователю
+        await message.answer_voice(audio_file)
+
     except Exception as e:
         logger.error(f"Error processing voice message: {e}")
         await message.answer(f"An error occurred: {e}")
     finally:
         await state.clear()
-        if os.path.exists(file_name):
+        if file_name and os.path.exists(file_name):
             os.remove(file_name)
+        if audio_file_path and os.path.exists(audio_file_path):
+            os.remove(audio_file_path)
