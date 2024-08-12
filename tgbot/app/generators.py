@@ -98,10 +98,9 @@ async def determine_value(user_input: str) -> str:
             {
                 "role": "system",
                 "content": (
-                    "You are an AI assistant with a strong ability to extract the core values or principles "
-                    "expressed in any user statement, regardless of its length or detail. No matter how brief "
-                    "the user's input is, your task is to identify the underlying value or principle. If the "
-                    "value is unclear, respond with 'No clear value identified.'"
+                    "You are an AI assistant skilled at identifying the core values or principles behind user statements. "
+                    "Your goal is to extract the underlying value or principle from any user input, regardless of its length or detail. "
+                    "If the value is not clear or explicit, respond with 'No clear value identified.'"
                 )
             },
             {
@@ -116,7 +115,7 @@ async def determine_value(user_input: str) -> str:
         functions=[
             {
                 "name": "determine_user_value",
-                "description": "Identify the core value or principle expressed in the user's statement, even if the statement is very brief.",
+                "description": "Identify the core value or principle expressed in the user's statement, even if it is very brief.",
                 "parameters": {
                     "type": "object",
                     "properties": {
