@@ -1,6 +1,8 @@
 import logging
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database.models import UserValue
 from config import settings
 
 load_dotenv()
@@ -87,3 +89,115 @@ async def text_to_speech(text: str) -> str:
     except Exception as e:
         logger.error(f"Error generating TTS: {e}")
         raise
+
+
+async def determine_value(user_input: str) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI assistant with a strong ability to extract the core values or principles "
+                    "expressed in any user statement, regardless of its length or detail. No matter how brief "
+                    "the user's input is, your task is to identify the underlying value or principle. If the "
+                    "value is unclear, respond with 'No clear value identified.'"
+                )
+            },
+            {
+                "role": "user",
+                "content": f"User statement: {user_input}"
+            },
+            {
+                "role": "assistant",
+                "content": "Core value:"
+            }
+        ],
+        functions=[
+            {
+                "name": "determine_user_value",
+                "description": "Identify the core value or principle expressed in the user's statement, even if the statement is very brief.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "statement": {
+                            "type": "string",
+                            "description": "The user's statement from which to extract the core value.",
+                        }
+                    },
+                    "required": ["statement"],
+                },
+            }
+        ],
+        function_call="auto"
+    )
+
+    return response.choices[0].message.content
+
+
+async def check_value(value: str) -> bool:
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an AI assistant skilled at identifying and validating core values "
+                        "expressed in a user's statement. Based on the user's input, determine the "
+                        "primary value or principle they are expressing, and validate it using the "
+                        "provided validation tool."
+                    )
+                },
+                {"role": "user", "content": f"User statement: {value}"},
+                {"role": "assistant", "content": "Core value:"}
+            ],
+            functions=[
+                {
+                    "name": "validate_value",
+                    "description": "Validate the identified value to ensure it is clear and meaningful.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "value": {
+                                "type": "string",
+                                "description": "The core value identified from the user's statement.",
+                            }
+                        },
+                        "required": ["value"],
+                    },
+                }
+            ],
+            function_call="auto"
+        )
+
+        result = response.choices[0].message.content
+        if result.lower() == "true":
+            return True
+        else:
+            return False
+
+    except Exception as e:
+        raise Exception(f"Error saving value to the database: {e}")
+
+
+async def save_value(user_input: str, user_id: int, session: AsyncSession) -> bool:
+    try:
+        value = await determine_value(user_input)
+
+        is_valid = await check_value(value)
+        if not is_valid:
+            logger.error(f"Invalid value detected: {value}")
+            return False
+
+        user_value = UserValue(user_id=user_id, value=value)
+        session.add(user_value)
+        await session.commit()
+
+        logger.info(f"Successfully saved value: {value}")
+        return True
+
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"Error saving value to the database: {e}")
+        return False

@@ -8,7 +8,9 @@ from aiogram.fsm.context import FSMContext
 import aiofiles
 import ssl
 from aiohttp import ClientSession, TCPConnector
-from app.generators import gpt4, transcribe_audio, text_to_speech
+
+from app.database.models import async_session
+from app.generators import gpt4, transcribe_audio, text_to_speech, save_value
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +25,7 @@ class Generate(StatesGroup):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    await message.answer('Добро пожаловать в бот! Напишите ваш запрос')
+    await message.answer('Добро пожаловать в бот!')
     await state.clear()
 
 
@@ -36,13 +38,18 @@ async def generate_error(message: Message):
 async def generate(message: Message, state: FSMContext):
     await state.set_state(Generate.text)
     try:
-        gpt_text = await gpt4(message.text)
-        await message.answer(gpt_text)
+        async with async_session() as session:
+            value = await save_value(message.text, message.from_user.id, session)
+            if value is False:
+                await message.answer('The provided value is not valid or unclear. Please provide more detailed information.')
+            else:
+                gpt_text = await gpt4(message.text)
+                await message.answer(gpt_text)
 
-        audio_file_path = await text_to_speech(gpt_text)
-        audio_file = FSInputFile(audio_file_path)
+                audio_file_path = await text_to_speech(gpt_text)
+                audio_file = FSInputFile(audio_file_path)
 
-        await message.answer_voice(audio_file)
+                await message.answer_voice(audio_file)
 
     except Exception as e:
         logger.error(f"Error generating response: {e}")
