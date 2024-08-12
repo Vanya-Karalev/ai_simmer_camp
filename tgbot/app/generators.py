@@ -98,9 +98,9 @@ async def determine_value(user_input: str) -> str:
             {
                 "role": "system",
                 "content": (
-                    "You are an AI assistant skilled at identifying the core values or principles behind user statements. "
-                    "Your goal is to extract the underlying value or principle from any user input, regardless of its length or detail. "
-                    "If the value is not clear or explicit, respond with 'No clear value identified.'"
+                    "You are an AI assistant designed to extract and identify core values or principles behind user statements. "
+                    "Based on the nature of the user’s query, identify relevant values or principles such as learning, mathematics, self-improvement, etc. "
+                    "If the value is not clear from the statement, respond with 'No clear value identified.'"
                 )
             },
             {
@@ -109,19 +109,19 @@ async def determine_value(user_input: str) -> str:
             },
             {
                 "role": "assistant",
-                "content": "Core value:"
+                "content": "Core value(s):"
             }
         ],
         functions=[
             {
-                "name": "determine_user_value",
-                "description": "Identify the core value or principle expressed in the user's statement, even if it is very brief.",
+                "name": "determine_user_values",
+                "description": "Identify the core values or principles expressed in the user's statement. The response should include relevant values based on the context of the statement.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "statement": {
                             "type": "string",
-                            "description": "The user's statement from which to extract the core value.",
+                            "description": "The user's statement from which to extract core values.",
                         }
                     },
                     "required": ["statement"],
